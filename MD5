@@ -1,0 +1,9 @@
+62a3b1bbf4fac68ec33fbc46c8680673 *DESCRIPTION
+92222453819eab5e22e7759e2fc34c8c *NAMESPACE
+776e58e179c58f775cda879498139b3f *R/gcecox.R
+f00a253c849e3aed59e7bc1efd5ce45f *R/gcefg.R
+02898e2ab2defe66f2324b0767760189 *R/gcerisk.R
+42dcb61999bfd36071a6eaa95e0cc33c *data/Sample.rda
+28016494fa1affc82e3482320a350bcc *man/Sample.Rd
+c609586e7f2217c6c7afc98950186d6b *man/gcecox.Rd
+a51567843f38a28c788fee94ba3a058f *man/gcefg.Rd
