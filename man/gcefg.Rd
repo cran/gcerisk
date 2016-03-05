@@ -41,7 +41,7 @@ Fit a generalized competing event model by using Fine Gray
 regression model with \code{crr} function in \code{cmprsk} package.
 }
 \details{
-The \strong{gcersk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
+The \strong{gcerisk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
 Carmona R, Gulaya S, Murphy JD, Rose BS, Wu J, Noticewala S, McHale MT, Yashar CM, Vaida F, Mell LK. Validated competing event model for the stage I-II endometrial cancer population.
 Int J Radiat Oncol Biol Phys. 2014;89:888-98. Standard risk models typically estimate the effects of one or more covariates on either
 a single event of interest (such as overall mortality, or disease recurrence), or a composite set of events (e.g., disease-free survival, which combines events of interest with death from any cause).

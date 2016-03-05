@@ -13,7 +13,7 @@
 #' @param M the number of bins for \eqn{\omega} or \eqn{\omega+} plots.
 #' @param t survival time point for \eqn{\omega} or \eqn{\omega+} plots.
 #' @import survival cmprsk ggplot2 stats
-#' @details The \strong{gcersk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
+#' @details The \strong{gcerisk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
 #' Carmona R, Gulaya S, Murphy JD, Rose BS, Wu J, Noticewala S, McHale MT, Yashar CM, Vaida F, Mell LK. Validated competing event model for the stage I-II endometrial cancer population.
 #' Int J Radiat Oncol Biol Phys. 2014;89:888-98. Standard risk models typically estimate the effects of one or more covariates on either
 #' a single event of interest (such as overall mortality, or disease recurrence), or a composite set of events (e.g., disease-free survival, which combines events of interest with death from any cause).
@@ -208,15 +208,13 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
       H.hat.alltime[j] <- predict(fitlm, point, interval ="prediction")[1]
     }
 
-    omegas[i] <- mean(H.hat.catime/H.hat.alltime)
+    omegas[i] <- mean(H.hat.catime)/mean(H.hat.alltime)
   }
 
 
   N1 <- table(data$normCERomega)
   y1 <- omegas
-  x1 <- quantile(data$normCER, prob=seq(0,1,1/(2*M)))
-  idx <- seq(2,2*M,by = 2)
-  x1 <- x1[idx]
+  x1 <- seq(min(data$normCER), max(data$normCER), len = 5)
   z1 <- qplot(x1, y1, xlab = "Risk Score", ylab = expression(omega))
 
   # Omega plot for B1-B2
@@ -264,15 +262,13 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
       H.hat.cmtime[j] <- predict(fitlm, point, interval ="prediction")[1]
     }
 
-    omegas[i] <- mean(H.hat.catime/H.hat.cmtime)
+    omegas[i] <- mean(H.hat.catime)/mean(H.hat.cmtime)
   }
 
 
   N2 <- table(data$normCERomega)
   y2 <- omegas
-  x2 <- quantile(data$normCER, prob=seq(0,1,1/(2*M)))
-  idx <- seq(2,2*M,by = 2)
-  x2 <- x2[idx]
+  x2 <- seq(min(data$normCER), max(data$normCER), len = 5)
   z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
 
   # Omega vs Time plot
@@ -281,25 +277,25 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   for (i in 1:t){
     H.hat.catime <- rep(0,l)
     for (j in 1:l){
-    yca <- predict(fit1, as.matrix(covdata)[j,])[,2]
-    yca <- -log(1-yca)
-    xca <- predict(fit1, as.matrix(covdata)[j,])[,1]
-    fitlm <- lm(yca~xca)
-    point <- data.frame(xca = i)
-    H.hat.catime[j] <- predict(fitlm, point, interval ="prediction")[1]
+      yca <- predict(fit1, as.matrix(covdata)[j,])[,2]
+      yca <- -log(1-yca)
+      xca <- predict(fit1, as.matrix(covdata)[j,])[,1]
+      fitlm <- lm(yca~xca)
+      point <- data.frame(xca = i)
+      H.hat.catime[j] <- predict(fitlm, point, interval ="prediction")[1]
     }
 
     H.hat.alltime <- rep(0,l)
     for (j in 1:l){
-    yall <- predict(fit3, as.matrix(covdata)[j,])[,2]
-    yall <- -log(1-yall)
-    xall <- predict(fit3, as.matrix(covdata)[j,])[,1]
-    fitlm2 <- lm(yall~xall)
-    point2 <- data.frame(xall = i)
-    H.hat.alltime[j] <- predict(fitlm2, point2, interval ="prediction")[1]
+      yall <- predict(fit3, as.matrix(covdata)[j,])[,2]
+      yall <- -log(1-yall)
+      xall <- predict(fit3, as.matrix(covdata)[j,])[,1]
+      fitlm2 <- lm(yall~xall)
+      point2 <- data.frame(xall = i)
+      H.hat.alltime[j] <- predict(fitlm2, point2, interval ="prediction")[1]
     }
 
-    omegas[i] <- mean(H.hat.catime/H.hat.alltime)
+    omegas[i] <- mean(H.hat.catime)/mean(H.hat.alltime)
   }
 
   y3 <- omegas
@@ -325,5 +321,6 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1, omegaplot2 = z2, omegaplot3 = z3))
 
 }
+
 
 

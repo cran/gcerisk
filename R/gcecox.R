@@ -16,7 +16,7 @@
 #' @param N the number of bootstrap replicates
 #' @param M the number of bins for \eqn{\omega} or \eqn{\omega+} plots.
 #' @param t survival time point for \eqn{\omega} or \eqn{\omega+} plots.
-#' @details The \strong{gcersk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
+#' @details The \strong{gcerisk} package is designed to help investigators optimize risk-stratification methods for competing risks data, such as described in
 #' Carmona R, Gulaya S, Murphy JD, Rose BS, Wu J, Noticewala S, McHale MT, Yashar CM, Vaida F, Mell LK. Validated competing event model for the stage I-II endometrial cancer population.
 #' Int J Radiat Oncol Biol Phys. 2014;89:888-98. Standard risk models typically estimate the effects of one or more covariates on either
 #' a single event of interest (such as overall mortality, or disease recurrence), or a composite set of events (e.g., disease-free survival, which combines events of interest with death from any cause).
@@ -78,18 +78,12 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   # coefficients
   covnames <- attr(terms(formula1), "term.labels")
 
-  Beta12.boot <- matrix(nrow = N, ncol = length(covnames), data = 0)
-  Betanew.boot <- matrix(nrow = N, ncol = length(covnames), data = 0)
-
-  for (i in 1:N){
-    bootsample <- data[sample(1:nrow(data), nrow(data), replace = TRUE),]
-    CA_CPH.boot <- coxph(formula1, bootsample)
-    CM_CPH.boot <- coxph(formula2, bootsample)
-    All_CPH.boot <- coxph(formula3, bootsample)
-    Beta12.boot[i,] <- coef(CA_CPH.boot) - coef(CM_CPH.boot)
-    Betanew.boot[i,] <- coef(CA_CPH.boot) - coef(All_CPH.boot)
-  }
-
+  CA_CPH <- coxph(formula1, data)
+  CM_CPH <- coxph(formula2, data)
+  All_CPH <- coxph(formula3, data)
+  Beta1 <- CA_CPH$coef
+  Beta2 <- CM_CPH$coef
+  Beta <- All_CPH$coef
 
   Beta12 <- matrix(nrow = length(covnames), ncol = 1, data = 0)
   Betanew <- matrix(nrow = length(covnames), ncol = 1, data = 0)
@@ -98,26 +92,53 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   rownames(Betanew) <- covnames
   colnames(Betanew) <- " "
   for (i in 1:length(covnames)){
-    Beta12[i,] <- mean(Beta12.boot[,i])
+    Beta12[i,] <- coef(CA_CPH)[i] - coef(CM_CPH)[i]
   }
   for (i in 1:length(covnames)){
-    Betanew[i,] <- mean(Betanew.boot[,i])
+    Betanew[i,] <- coef(CA_CPH)[i] - coef(All_CPH)[i]
   }
 
   Beta12 <- round(Beta12,5)
   Betanew <- round(Betanew,5)
 
-
   # variance
+  var1 <- diag(CA_CPH$var)
+  var2 <- diag(CM_CPH$var)
+  var3 <- diag(All_CPH$var)
+
+  coefvar1.boot <- matrix(nrow = N,ncol = length(covnames), data = NA)
+  colnames(coefvar1.boot) <- covnames
+  for (j in 1:N){
+    for (i in 1:length(covnames)){
+      Beta1dist <- sample(rnorm(1000, Beta1[i],sqrt(var1)[i]), 1000, replace = T)
+      Betadist <- sample(rnorm(1000, Beta[i],sqrt(var3)[i]), 1000, replace = T)
+      Betanewdist <- Beta1dist - Betadist
+      coefvar1.boot[j,i] <- var(Betanewdist)
+    }
+  }
   coefvar1 <- matrix(nrow = length(covnames),ncol = 1, data = NA)
   rownames(coefvar1) <- covnames
+  colnames(coefvar1) <- " "
   for (i in 1:length(covnames)){
-    coefvar1[i,] <- var(Betanew.boot[,i])
+    coefvar1[i,] <- mean(coefvar1.boot[,i])
+  }
+
+
+  coefvar2.boot <- matrix(nrow = N,ncol = length(covnames), data = NA)
+  colnames(coefvar2.boot) <- covnames
+  for (j in 1:N){
+    for (i in 1:length(covnames)){
+      Beta1dist <- sample(rnorm(1000, Beta1[i],sqrt(var1)[i]), 1000, replace = T)
+      Beta2dist <- sample(rnorm(1000, Beta2[i],sqrt(var2)[i]), 1000, replace = T)
+      Beta12dist <- Beta1dist - Beta2dist
+      coefvar2.boot[j,i] <- var(Beta12dist)
+    }
   }
   coefvar2 <- matrix(nrow = length(covnames),ncol = 1, data = NA)
   rownames(coefvar2) <- covnames
+  colnames(coefvar2) <- " "
   for (i in 1:length(covnames)){
-    coefvar2[i,] <- var(Beta12.boot[,i])
+    coefvar2[i,] <- mean(coefvar2.boot[,i])
   }
 
 
@@ -125,18 +146,21 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   ci1 <- matrix(NA,length(covnames),2)
   colnames(ci1) <- c("2.5%","97.5%")
   rownames(ci1) <- covnames
+  df <- dim(data)[1]
   for (i in 1:length(covnames)) {
-    ci1[i,1] <- quantile(Betanew.boot[,i], c(0.025, 0.975))[1]
-    ci1[i,2] <- quantile(Betanew.boot[,i], c(0.025, 0.975))[2]
+    ci1[i,1] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[1]
+    ci1[i,2] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[2]
   }
 
   ci2 <- matrix(NA,length(covnames),2)
   colnames(ci2) <- c("2.5%","97.5%")
   rownames(ci2) <- covnames
+  df <- dim(data)[1]
   for (i in 1:length(covnames)) {
-    ci2[i,1] <- quantile(Beta12.boot[,i], c(0.025, 0.975))[1]
-    ci2[i,2] <- quantile(Beta12.boot[,i], c(0.025, 0.975))[2]
+    ci2[i,1] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[1]
+    ci2[i,2] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[2]
   }
+
 
   # Omega plot for B1-B
   # Competing event risk score
@@ -181,9 +205,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
 
 
   y1 <- omegas
-  x1 <- quantile(data$normCER, prob=seq(0,1,1/(2*M)))
-  idx <- seq(2,2*M,by = 2)
-  x1 <- x1[idx]
+  x1 <- seq(min(data$normCER), max(data$normCER), len = 5)
   z1 <- qplot(x1,y1, xlab = "Risk Score", ylab = expression(omega))
 
 
@@ -230,9 +252,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   }
 
   y2 <- omegas
-  x2 <- quantile(data$normCER, prob=seq(0,1,1/(2*M)))
-  idx <- seq(2,2*M,by = 2)
-  x2 <- x2[idx]
+  x2 <- seq(min(data$normCER), max(data$normCER), len = 5)
   z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
 
   # Omega vs Time plot
