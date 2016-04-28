@@ -205,7 +205,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
 
 
   y1 <- omegas
-  x1 <- seq(min(data$normCER), max(data$normCER), len = 5)
+  x1 <- seq(min(data$normCER), max(data$normCER), len = M)
   z1 <- qplot(x1,y1, xlab = "Risk Score", ylab = expression(omega))
 
 
@@ -252,7 +252,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   }
 
   y2 <- omegas
-  x2 <- seq(min(data$normCER), max(data$normCER), len = 5)
+  x2 <- seq(min(data$normCER), max(data$normCER), len = M)
   z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
 
   # Omega vs Time plot

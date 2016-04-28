@@ -214,7 +214,7 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
 
   N1 <- table(data$normCERomega)
   y1 <- omegas
-  x1 <- seq(min(data$normCER), max(data$normCER), len = 5)
+  x1 <- seq(min(data$normCER), max(data$normCER), len = M)
   z1 <- qplot(x1, y1, xlab = "Risk Score", ylab = expression(omega))
 
   # Omega plot for B1-B2
@@ -268,7 +268,7 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
 
   N2 <- table(data$normCERomega)
   y2 <- omegas
-  x2 <- seq(min(data$normCER), max(data$normCER), len = 5)
+  x2 <- seq(min(data$normCER), max(data$normCER), len = M)
   z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
 
   # Omega vs Time plot
