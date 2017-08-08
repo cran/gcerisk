@@ -4,15 +4,21 @@
 #' with \code{coxph} function in \code{survival} package.
 #' @param formula1 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 #' function on the left, and the covariate terms on the right.
-#' @param formula2 a formula object for competing event(s), with a survival response returned by \code{Surv}
+#' @param formula2 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 #' function on the left, and the covariate terms on the right.
-#' @param formula3 a formula object for the composite set of all events, with a survival response returned by \code{Surv}
+#' @param formula3 a formula object for competing event(s), with a survival response returned by \code{Surv}
 #' function on the left, and the covariate terms on the right.
+#' @param formula4 a formula object for the composite set of all events, with a survival response returned by \code{Surv}
+#' function on the left, and the covariate terms on the right.
+#' @param survtime survival time for event(s) of interest.
 #' @param surv1 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 #' function on the left, and 1 on the right.
 #' @param surv2 a formula object for competing event(s), with a survival response returned by \code{Surv}
 #' function on the left, and 1 on the right.
 #' @param data a data frame containing variables named in formula.
+#' @param ca the status indicator, normally 0 = alive, 1 = dead from the primary event(s) of interest.
+#' @param cm the status indicator, normally 0 = alive, 1 = dead from the competing event(s) of interest.
+#' @param all the status indicator, normally 0 = alive, 1 = dead from the all kind of event(s) of interest.
 #' @param N the number of bootstrap replicates
 #' @param M the number of bins for \eqn{\omega} or \eqn{\omega+} plots.
 #' @param t survival time point for \eqn{\omega} or \eqn{\omega+} plots.
@@ -35,22 +41,27 @@
 #' test <- Sample
 #' rm(list=setdiff(ls(), "test"))
 #' test <- transform(test, LRF_OR_DF_FLAG = as.numeric(test$LRFFLAG | test$DFFLAG))
-#' test <- transform(test, LRF_OR_DF_MO = pmin(test$LRFMO, test$DFMO))
 #' test <- transform(test, CMFLAG = as.numeric(test$OSFLAG & !test$LRFFLAG & !test$DFFLAG))
 #' test <- transform(test, ACMFLAG = as.numeric(test$LRF_OR_DF_FLAG | test$CMFLAG))
-#' test <- transform(test, ACM_MO = pmin(test$LRF_OR_DF_MO, test$OSMO))
 #'
-#' formula1 <- Surv(LRF_OR_DF_MO, LRF_OR_DF_FLAG) ~ age + gender + smoke20 +
-#' etohheavy + higrade + BMI + black
-#' formula2 <- Surv(OSMO, CMFLAG) ~ age + gender + smoke20 + etohheavy + higrade + BMI + black
-#' formula3 <- Surv(ACM_MO, ACMFLAG) ~ age + gender + smoke20 + etohheavy + higrade + BMI + black
-#' surv1 <- Surv(LRF_OR_DF_MO, LRF_OR_DF_FLAG) ~ 1
+#' formula1 <- Surv(survtime, status) ~ age + smoke20 + etohheavy + BMI +
+#' dage + dsmoke20 + detohheavy + dBMI + strata(fail)
+#' formula2 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ age + smoke20 + etohheavy + BMI
+#' formula3 <- Surv(OSMO, CMFLAG) ~ age + smoke20 + etohheavy + BMI
+#' formula4 <- Surv(OSMO, ACMFLAG) ~ age + smoke20 + etohheavy + BMI
+#' surv1 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ 1
 #' surv2 <- Surv(OSMO, CMFLAG) ~ 1
+#' survtime <- test$OSMO
+#' ca <- test$LRF_OR_DF_FLAG
+#' cm <- test$CMFLAG
+#' all <- test$ACMFLAG
+#'
 #' N <- 100
 #' M <- 5
 #' t <- 60
 #'
-#' fitgce.cox <- gcecox(formula1, formula2, formula3, surv1, surv2, test, N, M, t)
+#' fit <- gcecox(formula1, formula2, formula3, formula4, survtime,
+#' surv1, surv2, test, ca, cm, all, N, M, t)
 
 #' @author Hanjie Shen, Ruben Carmona, Loren Mell
 #' @references
@@ -67,53 +78,60 @@
 #' \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing evet model}
 #' \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing evet model}
 #' \item{$omegaplot3}{plot of \eqn{\omega} vs time}
+#' \item{$omega}{predicted \eqn{\omega} values}
+#' \item{$omegaplus}{predicted \eqn{\omega+} values}
 #' @export
 
 
 #### gce function by cox
-gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
+gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv2, data, ca, cm, all, N, M, t)
 {
-  set.seed(seed = 2015)
-
   # coefficients
-  covnames <- attr(terms(formula1), "term.labels")
+  covnames = attr(terms(formula1), "term.labels")[1:((length(attr(terms(formula1), "term.labels"))-1)/2)]
 
-  CA_CPH <- coxph(formula1, data)
-  CM_CPH <- coxph(formula2, data)
-  All_CPH <- coxph(formula3, data)
-  Beta1 <- CA_CPH$coef
-  Beta2 <- CM_CPH$coef
-  Beta <- All_CPH$coef
+  data$id <- 1:dim(data)[1]
+  dat0 <- data[,covnames]
+  dat <- data.frame(id=data$id,dat0)
+  dat$survtime <- survtime
+  dat$survival <- all
+  dat$survival2 <- 0
+  dat$ca <- ca
+  dat$ca2 <- cm
+  dat$ca[dat$ca != 1 & dat$ca2 != 1] <- 1
 
-  Beta12 <- matrix(nrow = length(covnames), ncol = 1, data = 0)
-  Betanew <- matrix(nrow = length(covnames), ncol = 1, data = 0)
-  rownames(Beta12) <- covnames
-  colnames(Beta12) <- " "
-  rownames(Betanew) <- covnames
-  colnames(Betanew) <- " "
-  for (i in 1:length(covnames)){
-    Beta12[i,] <- coef(CA_CPH)[i] - coef(CM_CPH)[i]
+  dat2 <- reshape(dat, varying = list(c((3+length(covnames)):(4+length(covnames))),c((5+length(covnames)):(6+length(covnames)))),
+                  idvar = "id",  direction = "long",
+                  v.names=c("status","fail"))
+  dat2 <- dat2[order(dat2$id),]
+
+  dcovnames <- NULL
+  for (k in 1:length(covnames)){
+    dcovnames <- paste("d",covnames[k],sep = "")
+    dat2[dcovnames] <- dat2$fail*dat2[,covnames[k]]
   }
-  for (i in 1:length(covnames)){
-    Betanew[i,] <- coef(CA_CPH)[i] - coef(All_CPH)[i]
-  }
 
-  Beta12 <- round(Beta12,5)
-  Betanew <- round(Betanew,5)
+  fit <- coxph(formula1, data = dat2)
+  Beta12 <- coef(fit)[(length(covnames)+1):length(coef(fit))]
+
+  fit.ca <- coxph(formula2, data = data)
+  fit.all <- coxph(formula4, data = data)
+
+  Beta.ca <- coef(fit.ca)
+  Beta.all <- coef(fit.all)
+  Betanew <- Beta.ca - Beta.all
 
   # variance
-  var1 <- diag(CA_CPH$var)
-  var2 <- diag(CM_CPH$var)
-  var3 <- diag(All_CPH$var)
+  var.ca <- diag(fit.ca$var)
+  var.all <- diag(fit.all$var)
 
   coefvar1.boot <- matrix(nrow = N,ncol = length(covnames), data = NA)
   colnames(coefvar1.boot) <- covnames
   for (j in 1:N){
     for (i in 1:length(covnames)){
-      Beta1dist <- sample(rnorm(1000, Beta1[i],sqrt(var1)[i]), 1000, replace = T)
-      Betadist <- sample(rnorm(1000, Beta[i],sqrt(var3)[i]), 1000, replace = T)
-      Betanewdist <- Beta1dist - Betadist
-      coefvar1.boot[j,i] <- var(Betanewdist)
+      Beta.ca.dist <- sample(rnorm(1000, Beta.ca[i],sqrt(var.ca)[i]), 1000, replace = T)
+      Beta.all.dist <- sample(rnorm(1000, Beta.all[i],sqrt(var.all)[i]), 1000, replace = T)
+      Betanew.dist <- Beta.ca.dist - Beta.all.dist
+      coefvar1.boot[j,i] <- var(Betanew.dist)
     }
   }
   coefvar1 <- matrix(nrow = length(covnames),ncol = 1, data = NA)
@@ -123,23 +141,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
     coefvar1[i,] <- mean(coefvar1.boot[,i])
   }
 
-
-  coefvar2.boot <- matrix(nrow = N,ncol = length(covnames), data = NA)
-  colnames(coefvar2.boot) <- covnames
-  for (j in 1:N){
-    for (i in 1:length(covnames)){
-      Beta1dist <- sample(rnorm(1000, Beta1[i],sqrt(var1)[i]), 1000, replace = T)
-      Beta2dist <- sample(rnorm(1000, Beta2[i],sqrt(var2)[i]), 1000, replace = T)
-      Beta12dist <- Beta1dist - Beta2dist
-      coefvar2.boot[j,i] <- var(Beta12dist)
-    }
-  }
-  coefvar2 <- matrix(nrow = length(covnames),ncol = 1, data = NA)
-  rownames(coefvar2) <- covnames
-  colnames(coefvar2) <- " "
-  for (i in 1:length(covnames)){
-    coefvar2[i,] <- mean(coefvar2.boot[,i])
-  }
+  coefvar2 = diag(vcov(fit))[(length(covnames)+1):length(coef(fit))]
 
 
   # 95% CI
@@ -162,98 +164,33 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   }
 
 
-  # Omega plot for B1-B
-  # Competing event risk score
+  # Omega and Omega plus plots
   riskscorenew <- numeric(dim(data)[1])
   for (i in 1:length(covnames)){
     riskscorenew <- riskscorenew + Betanew[i]*with(data,get(covnames[i]))
   }
-
-  # Omega values and plots for competing event risk score
-  data$normCER <- (riskscorenew - mean(riskscorenew))/sd(riskscorenew)
-  l <- quantile(data$normCER, prob=seq(0,1,1/M))
-  data$normCERomega <- M
-  for (i in 1:M){
-    data$normCERomega[data$normCER >= l[i] & data$normCER < l[i+1]] <- i
-  }
-
-  omegas <- seq(0,0,len=M)
-
-  for (i in 1:M){
-    # cum hazard for cancer death
-    om.fit1 <- summary(survfit(surv1, data[data$normCERomega == i,]))
-    H.hat.cancer.death <- -log(om.fit1$surv)
-    yca <- H.hat.cancer.death[is.finite(H.hat.cancer.death)]
-    xca <- om.fit1$time[is.finite(H.hat.cancer.death)]
-    fitlm <- lm(yca~xca)
-    point <- data.frame(xca = t)
-    H.hat.catime <- predict(fitlm, point, interval ="prediction")[1]
-
-
-    # cum hazard for competing event
-    om.fit2 <- summary(survfit(surv2,data[data$normCERomega == i,]))
-    H.hat.competing.event <- -log(om.fit2$surv)
-    ycm <- H.hat.competing.event[is.finite(H.hat.competing.event)]
-    xcm <- om.fit2$time[is.finite(H.hat.competing.event)]
-    fitlm2 <- lm(ycm~xcm )
-    point2 <- data.frame(xcm = t)
-    H.hat.cmtime <- predict(fitlm2, point2, interval ="prediction")[1]
-
-
-    omegas[i] <- H.hat.catime/(H.hat.catime + H.hat.cmtime)
-  }
-
-
-  y1 <- omegas
-  x1 <- seq(min(data$normCER), max(data$normCER), len = M)
-  z1 <- qplot(x1,y1, xlab = "Risk Score", ylab = expression(omega))
-
-
-
-  # Omega plot for B1-B2
-  # Competing event risk score
   riskscore12 <- numeric(dim(data)[1])
   for (i in 1:length(covnames)){
     riskscore12 <- riskscore12 + Beta12[i]*with(data,get(covnames[i]))
   }
 
-  # Omega values and plots for competing event risk score
-  data$normCER <- (riskscore12 - mean(riskscore12))/sd(riskscore12)
-  l <- quantile(data$normCER, prob=seq(0,1,1/M))
-  data$normCERomega <- M
-  for (i in 1:M){
-    data$normCERomega[data$normCER >= l[i] & data$normCER < l[i+1]] <- i
-  }
-
-  omegas <- seq(0,0,len=M)
-
-  for (i in 1:M){
-    # cum hazard for cancer death
-    om.fit1 <- summary(survfit(surv1, data[data$normCERomega == i,]))
-    H.hat.cancer.death <- -log(om.fit1$surv)
-    yca <- H.hat.cancer.death[is.finite(H.hat.cancer.death)]
-    xca <- om.fit1$time[is.finite(H.hat.cancer.death)]
-    fitlm <- lm(yca~xca)
-    point <- data.frame(xca = t)
-    H.hat.catime <- predict(fitlm, point, interval ="prediction")[1]
+  normCER1 <- (riskscorenew - mean(riskscorenew))/sd(riskscorenew)
+  normCER2 <- (riskscore12 - mean(riskscore12))/sd(riskscore12)
 
 
-    # cum hazard for competing event
-    om.fit2 <- summary(survfit(surv2,data[data$normCERomega == i,]))
-    H.hat.competing.event <- -log(om.fit2$surv)
-    ycm <- H.hat.competing.event[is.finite(H.hat.competing.event)]
-    xcm <- om.fit2$time[is.finite(H.hat.competing.event)]
-    fitlm2 <- lm(ycm~xcm )
-    point2 <- data.frame(xcm = t)
-    H.hat.cmtime <- predict(fitlm2, point2, interval ="prediction")[1]
+  om.fit1 <- summary(survfit(surv1, data))
+  om.fit2 <- summary(survfit(surv2, data))
+  surv.ca <- om.fit1$surv[om.fit1$time >= 0  & om.fit1$time <= t]
+  surv.cm <- om.fit2$surv[om.fit2$time >= 0  & om.fit2$time <= t]
+  hca <- -log(surv.ca)
+  hcm <- -log(surv.cm)
+  w0plus <- mean(hca)/mean(hcm)
+  wplus <- w0plus*exp(riskscore12)
+  w <- wplus/(1+wplus)
 
+  z1 <- qplot(quantile(normCER1,prob=seq(0,1,1/M))[2:(M+1)],quantile(w,prob=seq(0,1,1/M))[2:(M+1)], xlab = "Risk Score", ylab = expression(omega))
+  z2 <- qplot(quantile(normCER2,prob=seq(0,1,1/M))[2:(M+1)],quantile(wplus,prob=seq(0,1,1/M))[2:(M+1)], xlab = "Risk Score", ylab = expression(omega^"+"))
 
-    omegas[i] <- H.hat.catime/H.hat.cmtime
-  }
-
-  y2 <- omegas
-  x2 <- seq(min(data$normCER), max(data$normCER), len = M)
-  z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
 
   # Omega vs Time plot
   omegas <- numeric(t)
@@ -283,7 +220,7 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   x3 <- 1:t
   z3 <- qplot(x3,y3, ylim = c(0,2*max(y3)), xlab = "Time", ylab = expression(omega))
 
-  # result tables
+  # Result tables
   table1 <- matrix(0,length(covnames),3)
   rownames(table1) <- covnames
   colnames(table1) <- c("exp(coef)", "lower .95", "upper .95")
@@ -298,6 +235,8 @@ gcecox <- function(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
   table2[,2] <- round(exp(ci2),5)[,1]
   table2[,3] <- round(exp(ci2),5)[,2]
 
-  return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1, omegaplot2 = z2, omegaplot3 = z3))
+  return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1,
+              omegaplot2 = z2, omegaplot3 = z3, omega = w, omegaplus = wplus))
 
 }
+

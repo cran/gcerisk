@@ -74,19 +74,16 @@ cod1 <- test$ACMFLAG
 cod1[test$LRF_OR_DF_FLAG == 1] <- 1
 cod1[test$CMFLAG == 1] <- 2
 cod2 <- test$ACMFLAG
-ostime1 <- test$LRF_OR_DF_MO
-ostime2 <- test$OSMO
-ostime3 <- test$ACM_MO
-covnames <- c("age", "gender", "smoke20", "etohheavy", "higrade", "BMI", "black")
+ostime1 <- test$LRF_OR_DF_MO/30
+ostime2 <- test$OSMO/30
+ostime3 <- test$ACM_MO/30
+covnames <- c("age", "smoke20", "etohheavy", "BMI")
 
 N <- 50
 M <- 5
-t <- 60
+t <- 5
 
-fitgce.fg <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
-}
-\author{
-Hanjie Shen, Ruben Carmona, Loren Mell
+fit <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
 }
 \references{
 \itemize{
@@ -95,4 +92,6 @@ Hanjie Shen, Ruben Carmona, Loren Mell
 \item Carmona R, Zakeri K, Green GB, Triplett DP, Murphy JD, Mell LK. (2015) Novel method to stratify elderly patients with prostate cancer. J Clin Oncol 33 (suppl; abstr 9532).
 }
 }
-
+\author{
+Hanjie Shen, Ruben Carmona, Loren Mell
+}

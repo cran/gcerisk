@@ -45,16 +45,16 @@
 #' cod1[test$LRF_OR_DF_FLAG == 1] <- 1
 #' cod1[test$CMFLAG == 1] <- 2
 #' cod2 <- test$ACMFLAG
-#' ostime1 <- test$LRF_OR_DF_MO
-#' ostime2 <- test$OSMO
-#' ostime3 <- test$ACM_MO
-#' covnames <- c("age", "gender", "smoke20", "etohheavy", "higrade", "BMI", "black")
+#' ostime1 <- test$LRF_OR_DF_MO/30
+#' ostime2 <- test$OSMO/30
+#' ostime3 <- test$ACM_MO/30
+#' covnames <- c("age", "smoke20", "etohheavy", "BMI")
 #'
 #' N <- 50
 #' M <- 5
-#' t <- 60
+#' t <- 5
 #'
-#' fitgce.fg <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
+#' fit <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
 
 #' @author Hanjie Shen, Ruben Carmona, Loren Mell
 #' @references
@@ -198,17 +198,17 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
     }
 
     # cum hazard for all events
-    H.hat.alltime <- rep(0,l)
+    H.hat.cmtime <- rep(0,l)
     for (j in 1:l){
-      yall <- predict(fit3, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
-      yall <- -log(1-yall)
-      xall <- predict(fit3, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
-      fitlm <- lm(yall~xall)
-      point <- data.frame(xall = t)
-      H.hat.alltime[j] <- predict(fitlm, point, interval ="prediction")[1]
+      ycm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
+      ycm <- -log(1-ycm)
+      xcm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
+      fitlm <- lm(ycm~xcm)
+      point <- data.frame(xcm = t)
+      H.hat.cmtime[j] <- predict(fitlm, point, interval ="prediction")[1]
     }
 
-    omegas[i] <- mean(H.hat.catime)/mean(H.hat.alltime)
+    omegas[i] <- mean(H.hat.catime)/(mean(H.hat.catime) + mean(H.hat.cmtime))
   }
 
 
@@ -269,7 +269,7 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   N2 <- table(data$normCERomega)
   y2 <- omegas
   x2 <- seq(min(data$normCER), max(data$normCER), len = M)
-  z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega("+")))
+  z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega^"+"))
 
   # Omega vs Time plot
   omegas <- numeric(t)
@@ -285,17 +285,17 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
       H.hat.catime[j] <- predict(fitlm, point, interval ="prediction")[1]
     }
 
-    H.hat.alltime <- rep(0,l)
+    H.hat.cmtime <- rep(0,l)
     for (j in 1:l){
-      yall <- predict(fit3, as.matrix(covdata)[j,])[,2]
-      yall <- -log(1-yall)
-      xall <- predict(fit3, as.matrix(covdata)[j,])[,1]
-      fitlm2 <- lm(yall~xall)
-      point2 <- data.frame(xall = i)
-      H.hat.alltime[j] <- predict(fitlm2, point2, interval ="prediction")[1]
+      ycm <- predict(fit2, as.matrix(covdata)[j,])[,2]
+      ycm <- -log(1-ycm)
+      xcm <- predict(fit2, as.matrix(covdata)[j,])[,1]
+      fitlm2 <- lm(ycm~xcm)
+      point2 <- data.frame(xcm = i)
+      H.hat.cmtime[j] <- predict(fitlm2, point2, interval ="prediction")[1]
     }
 
-    omegas[i] <- mean(H.hat.catime)/mean(H.hat.alltime)
+    omegas[i] <- mean(H.hat.catime)/(mean(H.hat.catime) + mean(H.hat.cmtime))
   }
 
   y3 <- omegas

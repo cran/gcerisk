@@ -1,9 +1,9 @@
-5d87fa38b98154087d45eb2b1ebaa76a *DESCRIPTION
+717a38b1ed24c017265a8362b805f117 *DESCRIPTION
 92222453819eab5e22e7759e2fc34c8c *NAMESPACE
-ab564caee2acb881be08f270f269a2f5 *R/gcecox.R
-c720bde330de849ececda826e99caebd *R/gcefg.R
+354ad89b72a163613ca7813984eca7b5 *R/gcecox.R
+7baec7940652ea33ebbd159b9dad3e11 *R/gcefg.R
 02898e2ab2defe66f2324b0767760189 *R/gcerisk.R
 42dcb61999bfd36071a6eaa95e0cc33c *data/Sample.rda
 28016494fa1affc82e3482320a350bcc *man/Sample.Rd
-bdb758a2b230e2aa3412d40fe9c13fc7 *man/gcecox.Rd
-70c564cc5240df14b3da2025b7dc266e *man/gcefg.Rd
+bd002d2c87e0a8bbe1749efa09dbb746 *man/gcecox.Rd
+1cd9142368884bd676e636e3e0bf36b0 *man/gcefg.Rd

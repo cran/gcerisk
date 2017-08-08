@@ -4,17 +4,23 @@
 \alias{gcecox}
 \title{Fit Generalized Competing Event Model Based on Proportional Hazards Regression}
 \usage{
-gcecox(formula1, formula2, formula3, surv1, surv2, data, N, M, t)
+gcecox(formula1, formula2, formula3, formula4, survtime, surv1, surv2, data, ca,
+  cm, all, N, M, t)
 }
 \arguments{
 \item{formula1}{a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 function on the left, and the covariate terms on the right.}
 
-\item{formula2}{a formula object for competing event(s), with a survival response returned by \code{Surv}
+\item{formula2}{a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 function on the left, and the covariate terms on the right.}
 
-\item{formula3}{a formula object for the composite set of all events, with a survival response returned by \code{Surv}
+\item{formula3}{a formula object for competing event(s), with a survival response returned by \code{Surv}
 function on the left, and the covariate terms on the right.}
+
+\item{formula4}{a formula object for the composite set of all events, with a survival response returned by \code{Surv}
+function on the left, and the covariate terms on the right.}
+
+\item{survtime}{survival time for event(s) of interest.}
 
 \item{surv1}{a formula object for event(s) of interest, with a survival response returned by \code{Surv}
 function on the left, and 1 on the right.}
@@ -23,6 +29,12 @@ function on the left, and 1 on the right.}
 function on the left, and 1 on the right.}
 
 \item{data}{a data frame containing variables named in formula.}
+
+\item{ca}{the status indicator, normally 0 = alive, 1 = dead from the primary event(s) of interest.}
+
+\item{cm}{the status indicator, normally 0 = alive, 1 = dead from the competing event(s) of interest.}
+
+\item{all}{the status indicator, normally 0 = alive, 1 = dead from the all kind of event(s) of interest.}
 
 \item{N}{the number of bootstrap replicates}
 
@@ -38,6 +50,8 @@ function on the left, and 1 on the right.}
 \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing evet model}
 \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing evet model}
 \item{$omegaplot3}{plot of \eqn{\omega} vs time}
+\item{$omega}{predicted \eqn{\omega} values}
+\item{$omegaplus}{predicted \eqn{\omega+} values}
 }
 \description{
 Fit a generalized competing event model by using Cox proportational hazards regression model
@@ -63,25 +77,28 @@ data(Sample)
 test <- Sample
 rm(list=setdiff(ls(), "test"))
 test <- transform(test, LRF_OR_DF_FLAG = as.numeric(test$LRFFLAG | test$DFFLAG))
-test <- transform(test, LRF_OR_DF_MO = pmin(test$LRFMO, test$DFMO))
 test <- transform(test, CMFLAG = as.numeric(test$OSFLAG & !test$LRFFLAG & !test$DFFLAG))
 test <- transform(test, ACMFLAG = as.numeric(test$LRF_OR_DF_FLAG | test$CMFLAG))
-test <- transform(test, ACM_MO = pmin(test$LRF_OR_DF_MO, test$OSMO))
 
-formula1 <- Surv(LRF_OR_DF_MO, LRF_OR_DF_FLAG) ~ age + gender + smoke20 +
-etohheavy + higrade + BMI + black
-formula2 <- Surv(OSMO, CMFLAG) ~ age + gender + smoke20 + etohheavy + higrade + BMI + black
-formula3 <- Surv(ACM_MO, ACMFLAG) ~ age + gender + smoke20 + etohheavy + higrade + BMI + black
-surv1 <- Surv(LRF_OR_DF_MO, LRF_OR_DF_FLAG) ~ 1
+formula1 <- Surv(survtime, status) ~ age + smoke20 + etohheavy + BMI +
+dage + dsmoke20 + detohheavy + dBMI + strata(fail)
+formula2 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ age + smoke20 +
+etohheavy + BMI
+formula3 <- Surv(OSMO, CMFLAG) ~ age + smoke20 + etohheavy + BMI
+formula4 <- Surv(OSMO, ACMFLAG) ~ age + smoke20 + etohheavy + BMI
+surv1 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ 1
 surv2 <- Surv(OSMO, CMFLAG) ~ 1
+survtime <- test$OSMO
+ca <- test$LRF_OR_DF_FLAG
+cm <- test$CMFLAG
+all <- test$ACMFLAG
+
 N <- 100
 M <- 5
 t <- 60
 
-fitgce.cox <- gcecox(formula1, formula2, formula3, surv1, surv2, test, N, M, t)
-}
-\author{
-Hanjie Shen, Ruben Carmona, Loren Mell
+fit <- gcecox(formula1, formula2, formula3, formula4, survtime,
+surv1, surv2, test, ca, cm, all, N, M, t)
 }
 \references{
 \itemize{
@@ -90,4 +107,6 @@ Hanjie Shen, Ruben Carmona, Loren Mell
 \item Carmona R, Zakeri K, Green GB, Triplett DP, Murphy JD, Mell LK. (2015) Novel method to stratify elderly patients with prostate cancer. J Clin Oncol 33 (suppl; abstr 9532).
 }
 }
-
+\author{
+Hanjie Shen, Ruben Carmona, Loren Mell
+}
