@@ -2,13 +2,10 @@
 #'
 #' @description Fit a generalized competing event model by using Fine Gray
 #' regression model with \code{crr} function in \code{cmprsk} package.
-#' @param ostime1 vector of times for event(s) of interest.
-#' @param ostime2 vector of times for competing event(s).
-#' @param ostime3 vector of times for the composute set of all events.
-#' @param cod1 vector with 1 for event(s) pf interest, 2 for competing event(s) and 0 for censored observations.
-#' @param cod2 vector with 1 for the composite set of all events and 0 for censored observations.
-#' @param data a data frame containing all covariates.
-#' @param covnames vector of names for all covariates in data.
+#' @param Time survival time for event(s) of interest.
+#' @param Ind the status indicators including the primary event(s) of interest, competing event(s) of interest,
+#' and all kind of event(s) of interest, normally 0 = alive, 1 = dead from the specific event(s) of interest.
+#' @param Cov a data frame containing all covariates.
 #' @param N the number of bootstrap replicates
 #' @param M the number of bins for \eqn{\omega} or \eqn{\omega+} plots.
 #' @param t survival time point for \eqn{\omega} or \eqn{\omega+} plots.
@@ -31,7 +28,7 @@
 #' data(Sample)
 #' test <- Sample
 #' d <- trunc(dim(test)[1]*0.1)
-#' set.seed(seed=2015)
+#' set.seed(seed=2017)
 #' s <- sample(dim(test)[1],d,replace = FALSE)
 #' test <- test[s,]
 #' rm(list=setdiff(ls(), "test"))
@@ -45,16 +42,15 @@
 #' cod1[test$LRF_OR_DF_FLAG == 1] <- 1
 #' cod1[test$CMFLAG == 1] <- 2
 #' cod2 <- test$ACMFLAG
-#' ostime1 <- test$LRF_OR_DF_MO/30
-#' ostime2 <- test$OSMO/30
-#' ostime3 <- test$ACM_MO/30
-#' covnames <- c("age", "smoke20", "etohheavy", "BMI")
+#' Ind <- data.frame(cod1 = cod1, cod2 = cod2)
+#' Time <- test$OSMO/30
+#' Cov <- test[,c(3,4,6,15)]
 #'
 #' N <- 50
 #' M <- 5
 #' t <- 5
 #'
-#' fit <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
+#' fit <- gcefg(Time, Ind, Cov, N, M, t)
 
 #' @author Hanjie Shen, Ruben Carmona, Loren Mell
 #' @references
@@ -75,15 +71,16 @@
 
 
 #### gce function by fine gray
-gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t)
+gcefg <- function(Time, Ind, Cov, N, M, t)
 {
-  set.seed(seed = 2015)
+  set.seed(seed = 2017)
+  covnames = names(Cov)
+  covdata = Cov
 
   # coefficients
-  covdata <- data[,covnames[1:length(covnames)]]
-  fit1 <- crr(ostime1,cod1,covdata,failcode=1)
-  fit2 <- crr(ostime2,cod1,covdata,failcode=2)
-  fit3 <- crr(ostime3,cod2,covdata,failcode=1)
+  fit1 <- crr(Time,Ind[,1],Cov,failcode=1)
+  fit2 <- crr(Time,Ind[,1],Cov,failcode=2)
+  fit3 <- crr(Time,Ind[,2],Cov,failcode=1)
   Beta1 <- fit1$coef
   Beta2 <- fit2$coef
   Beta <- fit3$coef
@@ -149,7 +146,7 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   ci1 <- matrix(NA,length(covnames),2)
   colnames(ci1) <- c("2.5%","97.5%")
   rownames(ci1) <- covnames
-  df <- dim(data)[1]
+  df <- dim(Cov)[1]
   for (i in 1:length(covnames)) {
     ci1[i,1] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[1]
     ci1[i,2] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[2]
@@ -158,7 +155,7 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   ci2 <- matrix(NA,length(covnames),2)
   colnames(ci2) <- c("2.5%","97.5%")
   rownames(ci2) <- covnames
-  df <- dim(data)[1]
+  df <- dim(Cov)[1]
   for (i in 1:length(covnames)) {
     ci2[i,1] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[1]
     ci2[i,2] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[2]
@@ -167,31 +164,31 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
 
   ## Omega plot for B1-B
   # Competing event risk score
-  riskscorenew <- numeric(dim(data)[1])
+  riskscorenew <- numeric(dim(Cov)[1])
   for (i in 1:length(covnames)){
-    riskscorenew <- riskscorenew + Betanew[i]*with(data,get(covnames[i]))
+    riskscorenew <- riskscorenew + Betanew[i]*with(Cov,get(covnames[i]))
   }
 
   # Omega values and plots for competing event risk score
-  data$normCER <- (riskscorenew - mean(riskscorenew))/sd(riskscorenew)
-  l <- quantile(data$normCER, prob=seq(0,1,1/M))
-  data$normCERomega <- M
+  Cov$normCER <- (riskscorenew - mean(riskscorenew))/sd(riskscorenew)
+  l <- quantile(Cov$normCER, prob=seq(0,1,1/M))
+  Cov$normCERomega <- M
   for (i in 1:M){
-    data$normCERomega[data$normCER >= l[i] & data$normCER < l[i+1]] <- i
+    Cov$normCERomega[Cov$normCER >= l[i] & Cov$normCER < l[i+1]] <- i
   }
 
   omegas <- seq(0,0,len = M)
 
   for (i in 1:M){
 
-    l <- dim(data[data$normCERomega == i,])[1]
+    l <- dim(Cov[Cov$normCERomega == i,])[1]
 
     # cum hazard for cancer death
     H.hat.catime <- rep(0,l)
     for (j in 1:l){
-      yca <- predict(fit1, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
+      yca <- predict(fit1, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,2]
       yca <- -log(1-yca)
-      xca <- predict(fit1, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
+      xca <- predict(fit1, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,1]
       fitlm <- lm(yca~xca)
       point <- data.frame(xca = t)
       H.hat.catime[j] <- predict(fitlm, point, interval ="prediction")[1]
@@ -200,9 +197,9 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
     # cum hazard for all events
     H.hat.cmtime <- rep(0,l)
     for (j in 1:l){
-      ycm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
+      ycm <- predict(fit2, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,2]
       ycm <- -log(1-ycm)
-      xcm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
+      xcm <- predict(fit2, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,1]
       fitlm <- lm(ycm~xcm)
       point <- data.frame(xcm = t)
       H.hat.cmtime[j] <- predict(fitlm, point, interval ="prediction")[1]
@@ -212,24 +209,24 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   }
 
 
-  N1 <- table(data$normCERomega)
+  N1 <- table(Cov$normCERomega)
   y1 <- omegas
-  x1 <- seq(min(data$normCER), max(data$normCER), len = M)
+  x1 <- seq(min(Cov$normCER), max(Cov$normCER), len = M)
   z1 <- qplot(x1, y1, xlab = "Risk Score", ylab = expression(omega))
 
   # Omega plot for B1-B2
   # Competing event risk score
-  riskscore12 <- numeric(dim(data)[1])
+  riskscore12 <- numeric(dim(Cov)[1])
   for (i in 1:length(covnames)){
-    riskscore12 <- riskscore12 + Beta12[i]*with(data,get(covnames[i]))
+    riskscore12 <- riskscore12 + Beta12[i]*with(Cov,get(covnames[i]))
   }
 
   # Omega values and plots for competing event risk score
-  data$normCER <- (riskscore12 - mean(riskscore12))/sd(riskscore12)
-  l <- quantile(data$normCER, prob=seq(0,1,1/M))
-  data$normCERomega <- M
+  Cov$normCER <- (riskscore12 - mean(riskscore12))/sd(riskscore12)
+  l <- quantile(Cov$normCER, prob=seq(0,1,1/M))
+  Cov$normCERomega <- M
   for (i in 1:M){
-    data$normCERomega[data$normCER >= l[i] & data$normCER < l[i+1]] <- i
+    Cov$normCERomega[Cov$normCER >= l[i] & Cov$normCER < l[i+1]] <- i
   }
 
 
@@ -237,14 +234,14 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
 
   for (i in 1:M){
 
-    l <- dim(data[data$normCERomega == i,])[1]
+    l <- dim(Cov[Cov$normCERomega == i,])[1]
 
     # cum hazard for cancer death
     H.hat.catime <- rep(0,l)
     for (j in 1:l){
-      yca <- predict(fit1, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
+      yca <- predict(fit1, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,2]
       yca <- -log(1-yca)
-      xca <- predict(fit1, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
+      xca <- predict(fit1, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,1]
       fitlm <- lm(yca~xca)
       point <- data.frame(xca = t)
       H.hat.catime[j] <- predict(fitlm, point, interval ="prediction")[1]
@@ -254,9 +251,9 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
     # cum hazard for competing event
     H.hat.cmtime <- rep(0,l)
     for (j in 1:l){
-      ycm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,2]
+      ycm <- predict(fit2, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,2]
       ycm <- -log(1-ycm)
-      xcm <- predict(fit2, as.matrix(covdata[data$normCERomega == i,])[j,])[,1]
+      xcm <- predict(fit2, as.matrix(covdata[Cov$normCERomega == i,])[j,])[,1]
       fitlm <- lm(ycm~xcm)
       point <- data.frame(xcm = t)
       H.hat.cmtime[j] <- predict(fitlm, point, interval ="prediction")[1]
@@ -266,9 +263,9 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   }
 
 
-  N2 <- table(data$normCERomega)
+  N2 <- table(Cov$normCERomega)
   y2 <- omegas
-  x2 <- seq(min(data$normCER), max(data$normCER), len = M)
+  x2 <- seq(min(Cov$normCER), max(Cov$normCER), len = M)
   z2 <- qplot(x2,y2, xlab = "Risk Score", ylab = expression(omega^"+"))
 
   # Omega vs Time plot
@@ -305,14 +302,14 @@ gcefg <- function(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t
   # result tables
   table1 <- matrix(0,length(covnames),3)
   rownames(table1) <- covnames
-  colnames(table1) <- c("exp(coef)", "lower .95", "upper .95")
+  colnames(table1) <- c("exp(coef) (HR)", "lower .95", "upper .95")
   table1[,1] <- round(exp(Betanew),5)
   table1[,2] <- round(exp(ci1),5)[,1]
   table1[,3] <- round(exp(ci1),5)[,2]
 
   table2 <- matrix(0,length(covnames),3)
   rownames(table2) <- covnames
-  colnames(table2) <- c("exp(coef)", "lower .95", "upper .95")
+  colnames(table2) <- c("exp(coef) (HR)", "lower .95", "upper .95")
   table2[,1] <- round(exp(Beta12),5)
   table2[,2] <- round(exp(ci2),5)[,1]
   table2[,3] <- round(exp(ci2),5)[,2]

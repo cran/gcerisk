@@ -4,23 +4,18 @@
 \alias{gcefg}
 \title{Fit Generalized Competing Event Model Based on Fine Gray Regression}
 \usage{
-gcefg(ostime1, ostime2, ostime3, cod1, cod2, data, covnames, N, M, t)
+gcefg(Time, Ind, Cov, N, M, t)
 }
 \arguments{
-\item{ostime1}{vector of times for event(s) of interest.}
-
-\item{ostime2}{vector of times for competing event(s).}
-
-\item{ostime3}{vector of times for the composute set of all events.}
-
-\item{cod1}{vector with 1 for event(s) pf interest, 2 for competing event(s) and 0 for censored observations.}
-
-\item{cod2}{vector with 1 for the composite set of all events and 0 for censored observations.}
-
-\item{data}{a data frame containing all covariates.}
-
-\item{covnames}{vector of names for all covariates in data.}
-
+\item{Time}{
+survival time for event(s) of interest.
+}
+  \item{Ind}{
+the status indicators including the primary event(s) of interest, competing event(s) of interest, and all kind of event(s) of interest, normally 0 = alive, 1 = dead from the specific event(s) of interest.
+}
+  \item{Cov}{
+a data frame containing all covariates.
+}
 \item{N}{the number of bootstrap replicates}
 
 \item{M}{the number of bins for \eqn{\omega} or \eqn{\omega+} plots.}
@@ -60,7 +55,7 @@ The function returns \eqn{\omega} and \eqn{\omega+} ratio estimates for the chos
 data(Sample)
 test <- Sample
 d <- trunc(dim(test)[1]*0.1)
-set.seed(seed=2015)
+set.seed(seed=2017)
 s <- sample(dim(test)[1],d,replace = FALSE)
 test <- test[s,]
 rm(list=setdiff(ls(), "test"))
@@ -74,16 +69,16 @@ cod1 <- test$ACMFLAG
 cod1[test$LRF_OR_DF_FLAG == 1] <- 1
 cod1[test$CMFLAG == 1] <- 2
 cod2 <- test$ACMFLAG
-ostime1 <- test$LRF_OR_DF_MO/30
-ostime2 <- test$OSMO/30
-ostime3 <- test$ACM_MO/30
-covnames <- c("age", "smoke20", "etohheavy", "BMI")
+Ind <- data.frame(cod1 = cod1, cod2 = cod2)
+Time <- test$OSMO/30
+Cov <- test[,c(3,4,6,15)]
 
 N <- 50
 M <- 5
 t <- 5
 
-fit <- gcefg(ostime1, ostime2, ostime3, cod1, cod2, test, covnames, N, M, t)
+fit <- gcefg(Time, Ind, Cov, N, M, t)
+
 }
 \references{
 \itemize{

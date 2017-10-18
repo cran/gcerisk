@@ -2,23 +2,10 @@
 #'
 #' @description Fit a generalized competing event model by using Cox proportational hazards regression model
 #' with \code{coxph} function in \code{survival} package.
-#' @param formula1 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
-#' function on the left, and the covariate terms on the right.
-#' @param formula2 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
-#' function on the left, and the covariate terms on the right.
-#' @param formula3 a formula object for competing event(s), with a survival response returned by \code{Surv}
-#' function on the left, and the covariate terms on the right.
-#' @param formula4 a formula object for the composite set of all events, with a survival response returned by \code{Surv}
-#' function on the left, and the covariate terms on the right.
-#' @param survtime survival time for event(s) of interest.
-#' @param surv1 a formula object for event(s) of interest, with a survival response returned by \code{Surv}
-#' function on the left, and 1 on the right.
-#' @param surv2 a formula object for competing event(s), with a survival response returned by \code{Surv}
-#' function on the left, and 1 on the right.
-#' @param data a data frame containing variables named in formula.
-#' @param ca the status indicator, normally 0 = alive, 1 = dead from the primary event(s) of interest.
-#' @param cm the status indicator, normally 0 = alive, 1 = dead from the competing event(s) of interest.
-#' @param all the status indicator, normally 0 = alive, 1 = dead from the all kind of event(s) of interest.
+#' @param Time survival time for event(s) of interest.
+#' @param Ind the status indicators including the primary event(s) of interest, competing event(s) of interest,
+#' and all kind of event(s) of interest, normally 0 = alive, 1 = dead from the specific event(s) of interest.
+#' @param Cov a data frame containing all covariates.
 #' @param N the number of bootstrap replicates
 #' @param M the number of bins for \eqn{\omega} or \eqn{\omega+} plots.
 #' @param t survival time point for \eqn{\omega} or \eqn{\omega+} plots.
@@ -44,24 +31,14 @@
 #' test <- transform(test, CMFLAG = as.numeric(test$OSFLAG & !test$LRFFLAG & !test$DFFLAG))
 #' test <- transform(test, ACMFLAG = as.numeric(test$LRF_OR_DF_FLAG | test$CMFLAG))
 #'
-#' formula1 <- Surv(survtime, status) ~ age + smoke20 + etohheavy + BMI +
-#' dage + dsmoke20 + detohheavy + dBMI + strata(fail)
-#' formula2 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ age + smoke20 + etohheavy + BMI
-#' formula3 <- Surv(OSMO, CMFLAG) ~ age + smoke20 + etohheavy + BMI
-#' formula4 <- Surv(OSMO, ACMFLAG) ~ age + smoke20 + etohheavy + BMI
-#' surv1 <- Surv(OSMO, LRF_OR_DF_FLAG) ~ 1
-#' surv2 <- Surv(OSMO, CMFLAG) ~ 1
-#' survtime <- test$OSMO
-#' ca <- test$LRF_OR_DF_FLAG
-#' cm <- test$CMFLAG
-#' all <- test$ACMFLAG
-#'
+#' Time <- test$OSMO/30
+#' Ind <- data.frame(test$LRF_OR_DF_FLAG, test$CMFLAG, test$ACMFLAG)
+#' Cov <- test[,c(3,4,6,15)]
 #' N <- 100
 #' M <- 5
-#' t <- 60
+#' t <- 5
 #'
-#' fit <- gcecox(formula1, formula2, formula3, formula4, survtime,
-#' surv1, surv2, test, ca, cm, all, N, M, t)
+#' fit <- gcecox(Time, Ind, Cov, N, M, t)
 
 #' @author Hanjie Shen, Ruben Carmona, Loren Mell
 #' @references
@@ -84,19 +61,22 @@
 
 
 #### gce function by cox
-gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv2, data, ca, cm, all, N, M, t)
+gcecox <- function(Time, Ind, Cov, N, M, t)
 {
   # coefficients
-  covnames = attr(terms(formula1), "term.labels")[1:((length(attr(terms(formula1), "term.labels"))-1)/2)]
+  data.all <- cbind(Ind, Time, Cov)
+  data.all <- data.frame(data.all)
+  names(data.all)[1:3] = c("CA","CM","All")
 
-  data$id <- 1:dim(data)[1]
-  dat0 <- data[,covnames]
-  dat <- data.frame(id=data$id,dat0)
-  dat$survtime <- survtime
-  dat$survival <- all
+  covnames <- names(Cov)
+
+  id <- 1:dim(Cov)[1]
+  dat <- data.frame(id=id,Cov)
+  dat$survtime <- Time
+  dat$survival <- Ind[,3]
   dat$survival2 <- 0
-  dat$ca <- ca
-  dat$ca2 <- cm
+  dat$ca <- Ind[,1]
+  dat$ca2 <- Ind[,2]
   dat$ca[dat$ca != 1 & dat$ca2 != 1] <- 1
 
   dat2 <- reshape(dat, varying = list(c((3+length(covnames)):(4+length(covnames))),c((5+length(covnames)):(6+length(covnames)))),
@@ -104,17 +84,37 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
                   v.names=c("status","fail"))
   dat2 <- dat2[order(dat2$id),]
 
-  dcovnames <- NULL
+
+  dcovnames <- rep(NA,length(covnames))
   for (k in 1:length(covnames)){
-    dcovnames <- paste("d",covnames[k],sep = "")
-    dat2[dcovnames] <- dat2$fail*dat2[,covnames[k]]
+    dcovnames[k] <- paste("d",covnames[k],sep = "")
+    dat2[dcovnames[k]] <- dat2$fail*dat2[,covnames[k]]
   }
+
+  allnames <- c(covnames,dcovnames)
+  term1 <- allnames[1]
+  for (i in 1:(length(allnames)-1)){
+    term1 <- paste(term1,"+",allnames[i+1])
+  }
+  term2 <- covnames[1]
+  for (i in 1:(length(covnames)-1)){
+    term2 <- paste(term2,"+",covnames[i+1])
+  }
+
+  formula1 <- as.formula(noquote(paste("Surv(survtime, status)","~",term1,"+ strata(fail)")))
+  formula2 <- as.formula(noquote(paste("Surv(Time,CA)","~",term2)))
+  formula3 <- as.formula(noquote(paste("Surv(Time,CM)","~",term2)))
+  formula4 <- as.formula(noquote(paste("Surv(Time,All)","~",term2)))
+  surv1 <- Surv(Time,CA) ~ 1
+  surv2 <- Surv(Time,CM) ~ 1
+
 
   fit <- coxph(formula1, data = dat2)
   Beta12 <- coef(fit)[(length(covnames)+1):length(coef(fit))]
 
-  fit.ca <- coxph(formula2, data = data)
-  fit.all <- coxph(formula4, data = data)
+  fit.ca <- coxph(formula2, data = data.all)
+  fit.cm <- coxph(formula3, data = data.all)
+  fit.all <- coxph(formula4, data = data.all)
 
   Beta.ca <- coef(fit.ca)
   Beta.all <- coef(fit.all)
@@ -148,7 +148,7 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
   ci1 <- matrix(NA,length(covnames),2)
   colnames(ci1) <- c("2.5%","97.5%")
   rownames(ci1) <- covnames
-  df <- dim(data)[1]
+  df <- dim(data.all)[1]
   for (i in 1:length(covnames)) {
     ci1[i,1] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[1]
     ci1[i,2] <- (Betanew[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar1[i]))[2]
@@ -157,7 +157,7 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
   ci2 <- matrix(NA,length(covnames),2)
   colnames(ci2) <- c("2.5%","97.5%")
   rownames(ci2) <- covnames
-  df <- dim(data)[1]
+  df <- dim(data.all)[1]
   for (i in 1:length(covnames)) {
     ci2[i,1] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[1]
     ci2[i,2] <- (Beta12[i]+c(-1,1)*qt(0.975, df = df)*sqrt(coefvar2[i]))[2]
@@ -165,26 +165,26 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
 
 
   # Omega and Omega plus plots
-  riskscorenew <- numeric(dim(data)[1])
+  riskscorenew <- numeric(dim(data.all)[1])
   for (i in 1:length(covnames)){
-    riskscorenew <- riskscorenew + Betanew[i]*with(data,get(covnames[i]))
+    riskscorenew <- riskscorenew + Betanew[i]*with(data.all,get(covnames[i]))
   }
-  riskscore12 <- numeric(dim(data)[1])
+  riskscore12 <- numeric(dim(data.all)[1])
   for (i in 1:length(covnames)){
-    riskscore12 <- riskscore12 + Beta12[i]*with(data,get(covnames[i]))
+    riskscore12 <- riskscore12 + Beta12[i]*with(data.all,get(covnames[i]))
   }
 
   normCER1 <- (riskscorenew - mean(riskscorenew))/sd(riskscorenew)
   normCER2 <- (riskscore12 - mean(riskscore12))/sd(riskscore12)
 
 
-  om.fit1 <- summary(survfit(surv1, data))
-  om.fit2 <- summary(survfit(surv2, data))
+  om.fit1 <- summary(survfit(surv1, data.all))
+  om.fit2 <- summary(survfit(surv2, data.all))
   surv.ca <- om.fit1$surv[om.fit1$time >= 0  & om.fit1$time <= t]
   surv.cm <- om.fit2$surv[om.fit2$time >= 0  & om.fit2$time <= t]
   hca <- -log(surv.ca)
   hcm <- -log(surv.cm)
-  w0plus <- mean(hca)/mean(hcm)
+  w0plus <- mean(hca[!is.infinite(hca)])/mean(hcm[!is.infinite(hcm)])
   wplus <- w0plus*exp(riskscore12)
   w <- wplus/(1+wplus)
 
@@ -196,7 +196,7 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
   omegas <- numeric(t)
 
   for (i in 1:t){
-    om.fit1 <- summary(survfit(surv1, data))
+    om.fit1 <- summary(survfit(surv1, data.all))
     H.hat.cancer.death <- -log(om.fit1$surv)
     yca <- H.hat.cancer.death[is.finite(H.hat.cancer.death)]
     xca <- om.fit1$time[is.finite(H.hat.cancer.death)]
@@ -204,7 +204,7 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
     point <- data.frame(xca = i)
     H.hat.catime <- predict(fitlm, point, interval ="prediction")[1]
 
-    om.fit2 <- summary(survfit(surv2,data))
+    om.fit2 <- summary(survfit(surv2,data.all))
     H.hat.competing.event <- -log(om.fit2$surv)
     ycm <- H.hat.competing.event[is.finite(H.hat.competing.event)]
     xcm <- om.fit2$time[is.finite(H.hat.competing.event)]
@@ -223,14 +223,14 @@ gcecox <- function(formula1, formula2, formula3, formula4, survtime, surv1, surv
   # Result tables
   table1 <- matrix(0,length(covnames),3)
   rownames(table1) <- covnames
-  colnames(table1) <- c("exp(coef)", "lower .95", "upper .95")
+  colnames(table1) <- c("exp(coef) (HR)", "lower .95", "upper .95")
   table1[,1] <- round(exp(Betanew),5)
   table1[,2] <- round(exp(ci1),5)[,1]
   table1[,3] <- round(exp(ci1),5)[,2]
 
   table2 <- matrix(0,length(covnames),3)
   rownames(table2) <- covnames
-  colnames(table2) <- c("exp(coef)", "lower .95", "upper .95")
+  colnames(table2) <- c("exp(coef) (HR)", "lower .95", "upper .95")
   table2[,1] <- round(exp(Beta12),5)
   table2[,2] <- round(exp(ci2),5)[,1]
   table2[,3] <- round(exp(ci2),5)[,2]
