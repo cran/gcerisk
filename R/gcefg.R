@@ -43,7 +43,7 @@
 #' cod1[test$CMFLAG == 1] <- 2
 #' cod2 <- test$ACMFLAG
 #' Ind <- data.frame(cod1 = cod1, cod2 = cod2)
-#' Time <- test$OSMO/30
+#' Time <- test$OSMO/12
 #' Cov <- test[,c(3,4,6,15)]
 #'
 #' N <- 50
@@ -64,9 +64,11 @@
 #' \item{$coef2}{generalized competing event model coefficients (log (\eqn{\omega+} ratio))}
 #' \item{$result1}{result table for generalized competing event model containing exponential of coefficients (\eqn{\omega} ratio) and 95\% confidence intervals}
 #' \item{$result2}{result table for generalized competing event model containing exponential of coefficients (\eqn{\omega+} ratio) and 95\% confidence intervals}
-#' \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing evet model}
-#' \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing evet model}
+#' \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing event model}
+#' \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing event model}
 #' \item{$omegaplot3}{plot of \eqn{\omega} vs time}
+#' \item{$riskscore1}{predicted risk scores for \eqn{\omega}}
+#' \item{$riskscore2}{predicted risk scores for \eqn{\omega+}}
 #' @export
 
 
@@ -315,7 +317,8 @@ gcefg <- function(Time, Ind, Cov, N, M, t)
   table2[,3] <- round(exp(ci2),5)[,2]
 
 
-  return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1, omegaplot2 = z2, omegaplot3 = z3))
+  return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1, omegaplot2 = z2, omegaplot3 = z3,
+              riskscore1 = riskscorenew, riskscore2 = riskscore12))
 
 }
 

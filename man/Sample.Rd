@@ -12,10 +12,10 @@
   \item{etohheavy}{covariate}
   \item{higrade}{covariate}
   \item{age}{covariate}
-  \item{OSFLAG}{status variable}
-  \item{LRFFLAG}{status variable}
-  \item{DFFLAG}{status variable}
-  \item{DFSFLAG}{status variable}
+  \item{OSFLAG}{event variable}
+  \item{LRFFLAG}{event variable}
+  \item{DFFLAG}{event variable}
+  \item{DFSFLAG}{event variable}
   \item{OSMO}{time variable}
   \item{LRFMO}{time variable}
   \item{DFMO}{time variable}

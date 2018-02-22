@@ -31,7 +31,7 @@
 #' test <- transform(test, CMFLAG = as.numeric(test$OSFLAG & !test$LRFFLAG & !test$DFFLAG))
 #' test <- transform(test, ACMFLAG = as.numeric(test$LRF_OR_DF_FLAG | test$CMFLAG))
 #'
-#' Time <- test$OSMO/30
+#' Time <- test$OSMO/12
 #' Ind <- data.frame(test$LRF_OR_DF_FLAG, test$CMFLAG, test$ACMFLAG)
 #' Cov <- test[,c(3,4,6,15)]
 #' N <- 100
@@ -52,11 +52,13 @@
 #' \item{$coef2}{generalized competing event model coefficients (log (\eqn{\omega+} ratio))}
 #' \item{$result1}{result table for generalized competing event model containing exponential of coefficients (\eqn{\omega} ratio) and 95\% confidence intervals}
 #' \item{$result2}{result table for generalized competing event model containing exponential of coefficients (\eqn{\omega+} ratio) and 95\% confidence intervals}
-#' \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing evet model}
-#' \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing evet model}
+#' \item{$omegaplot1}{\eqn{\omega} plot for generalized  competing event model}
+#' \item{$omegaplot2}{\eqn{\omega+} plot for generalized  competing event model}
 #' \item{$omegaplot3}{plot of \eqn{\omega} vs time}
 #' \item{$omega}{predicted \eqn{\omega} values}
 #' \item{$omegaplus}{predicted \eqn{\omega+} values}
+#' \item{$riskscore1}{predicted risk scores for \eqn{\omega}}
+#' \item{$riskscore2}{predicted risk scores for \eqn{\omega+}}
 #' @export
 
 
@@ -236,7 +238,8 @@ gcecox <- function(Time, Ind, Cov, N, M, t)
   table2[,3] <- round(exp(ci2),5)[,2]
 
   return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1,
-              omegaplot2 = z2, omegaplot3 = z3, omega = w, omegaplus = wplus))
+              omegaplot2 = z2, omegaplot3 = z3, omega = w, omegaplus = wplus, riskscore1 = riskscorenew,
+              riskscore2 = riskscore12))
 
 }
 
