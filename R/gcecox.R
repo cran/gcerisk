@@ -230,12 +230,13 @@ gcecox <- function(Time, Ind, Cov, N, M, t)
   table1[,2] <- round(exp(ci1),5)[,1]
   table1[,3] <- round(exp(ci1),5)[,2]
 
-  table2 <- matrix(0,length(covnames),3)
+  table2 <- matrix(0,length(covnames),4)
   rownames(table2) <- covnames
-  colnames(table2) <- c("exp(coef) (HR)", "lower .95", "upper .95")
+  colnames(table2) <- c("exp(coef) (HR)", "lower .95", "upper .95", "P-value")
   table2[,1] <- round(exp(Beta12),5)
   table2[,2] <- round(exp(ci2),5)[,1]
   table2[,3] <- round(exp(ci2),5)[,2]
+  table2[,4] <- round(summary(fit)$coefficients[(length(covnames)+1):(2*length(covnames)),5],5)
 
   return(list(coef1 = Betanew, coef2 = Beta12, result1 = table1, result2 = table2, omegaplot1 = z1,
               omegaplot2 = z2, omegaplot3 = z3, omega = w, omegaplus = wplus, riskscore1 = riskscorenew,

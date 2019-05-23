@@ -1,9 +1,9 @@
 Package: gcerisk
 Type: Package
 Title: Generalized Competing Event Model
-Version: 18.02.22
-Date: 2018-2-22
-Author: Hanjie Shen <has072@ucsd.edu>, Ruben Carmona
+Version: 19.05.24
+Date: 2019-05-22
+Author: Hanjie Shen <shenhanjie0418@gmail.com>, Ruben Carmona
     <ruben.carmona13@gmail.com>, Loren Mell <lmell@ucsd.edu>
 Maintainer: Hanjie Shen <shenhanjie0418@gmail.com>
 Depends: survival, cmprsk, ggplot2,
@@ -20,6 +20,6 @@ License: GPL (>= 2)
 LazyData: TRUE
 RoxygenNote: 6.0.1
 NeedsCompilation: no
-Packaged: 2018-02-22 22:43:43 UTC; shen
+Packaged: 2019-05-23 05:10:47 UTC; shen
 Repository: CRAN
-Date/Publication: 2018-02-22 22:56:32 UTC
+Date/Publication: 2019-05-23 07:50:08 UTC
